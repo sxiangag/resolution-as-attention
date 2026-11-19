@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resolution as Attention for Efficient Agent Memory Perception</title>
+<meta name="description" content="Resolution as Attention (RAA) renders an agent's past interactions as images and scales each one's resolution by its relevance to the next decision, cutting history tokens by over 50% without hurting task performance.">
+<link rel="canonical" href="https://sxiangag.github.io/resolution-as-attention/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Resolution as Attention for Efficient Agent Memory Perception">
+<meta property="og:description" content="Resolution as Attention (RAA) uses visual resolution as the agent's attention over its interaction history, reducing token consumption by over 50% without compromising task performance.">
+<meta property="og:url" content="https://sxiangag.github.io/resolution-as-attention/">
+<meta property="og:image" content="https://sxiangag.github.io/resolution-as-attention/assets/comparison.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F8F7F4;
+  --ink:#241F1D;
+  --muted:#6B6360;
+  --rule:#E3DED8;
+  --focus:#2F6B5B;
+  --focus-deep:#1F4A3F;
+  --haze:#E3EEE9;
+  --surface:#fff;
+  --on-ink:#fff;
+  --grid:#EEE9E4;
+  --dot:#C3CBC6;
+  --dot-stroke:#8C9891;
+  --sans:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --display:var(--serif);
+  --display-weight:700;
+  --wide:1040px;
+  --text:none;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.62;font-feature-settings:"kern","liga"}
+a{color:var(--focus-deep);text-underline-offset:.18em;text-decoration-thickness:1px}
+a:hover{color:var(--focus)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:3px;border-radius:2px}
+img{max-width:100%;height:auto;display:block}
+
+.wrap{max-width:var(--wide);margin:0 auto;padding:0 28px}
+.prose{max-width:var(--text)}
+
+/* ---------- header ---------- */
+header.hero{padding:88px 0 0}
+.hero h1{font-family:var(--display);font-size:clamp(32px,4.8vw,54px);line-height:1.08;letter-spacing:-.028em;margin:0}
+.hero h1 .name{display:block;font-weight:var(--display-weight);color:var(--ink)}
+.hero h1 .rest{display:block;font-weight:400;color:var(--muted);letter-spacing:-.02em}
+.authors{font-family:var(--sans);font-size:17px;line-height:1.7;margin:34px 0 0}
+.authors span{display:inline-block;white-space:nowrap;margin-right:18px}
+.authors sup{font-size:.68em;color:var(--muted);margin-left:1px}
+.affils{font-family:var(--sans);font-size:15px;color:var(--muted);margin:4px 0 0}
+.affils span{display:inline-block;margin-right:22px;white-space:nowrap}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin:28px 0 0;padding:0;list-style:none}
+.links a{font-family:var(--sans);font-size:15px;font-weight:600;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;text-decoration:none}
+.links a{background:var(--ink);color:var(--on-ink)}
+.links a.alt{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+.links a.alt:hover{background:var(--haze);color:var(--ink)}
+.links a:hover{background:var(--focus);color:var(--on-ink)}
+.links svg{width:16px;height:16px;flex:none}
+
+/* ---------- the lens (hero demo) ---------- */
+.lens{margin:52px 0 0}
+.claim{font-family:var(--serif);font-weight:400;font-size:clamp(19px,2vw,22px);line-height:1.5;letter-spacing:0;color:var(--ink);margin:0 0 30px;text-wrap:pretty}
+.lens-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px;margin-bottom:10px}
+.lens-head p{font-family:var(--sans);font-size:14px;margin:0;color:var(--muted);line-height:1.45}
+.lens-head .src{font-family:var(--sans);font-size:13px;color:var(--muted)}
+.stage{position:relative;background:#fff;border:1px solid var(--rule);border-radius:6px;padding:18px;overflow:hidden}
+.stage canvas{display:block;width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges}
+.dial{display:grid;grid-template-columns:1fr auto;gap:10px 28px;align-items:center;margin-top:18px}
+.dial-head{grid-column:1/-1;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 20px;font-family:var(--sans);font-size:14px;color:var(--muted)}
+.dial-head .geom{display:flex;gap:18px;font-size:13px;font-variant-numeric:tabular-nums}
+.track{position:relative}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--haze),var(--focus))}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--haze),var(--focus))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--paper);border:2px solid var(--focus-deep);margin-top:-9px;cursor:grab}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--paper);border:2px solid var(--focus-deep);cursor:grab}
+.marks{position:relative;height:22px;font-family:var(--sans);font-size:12.5px;color:var(--muted)}
+.marks button{position:absolute;top:0;transform:translateX(-50%);background:none;border:0;padding:2px 4px;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}
+.marks button:hover{color:var(--focus-deep)}
+.marks button::before{content:"";display:block;width:1px;height:6px;background:var(--muted);margin:0 auto 2px}
+.readout{display:flex;gap:28px;font-family:var(--sans);font-variant-numeric:tabular-nums}
+.readout div{display:flex;flex-direction:column;line-height:1.15}
+.readout b{font-size:28px;font-weight:600;letter-spacing:-.02em}
+.readout small{font-size:13px;color:var(--muted)}
+
+/* ---------- sections ---------- */
+section{padding:48px 0 0}
+section > .wrap > h2{font-family:var(--display);font-weight:600;font-size:30px;line-height:1.15;letter-spacing:-.02em;margin:0 0 18px;padding-top:22px;border-top:1px solid var(--rule)}
+h3{font-family:var(--display);font-weight:600;font-size:19px;letter-spacing:-.01em;margin:30px 0 6px}
+p{margin:0 0 1em}
+.lede{font-size:inherit}
+.epigraph{margin:6px 0 30px;padding:0 0 0 24px;max-width:88%;border-left:2px solid var(--rule)}
+.epigraph p{font-style:italic;font-size:18px;line-height:1.6;color:var(--ink);margin:0;text-wrap:pretty}
+.epigraph cite{display:block;font-style:normal;font-family:var(--sans);font-size:14px;color:var(--muted);margin-top:10px}
+@media (max-width:640px){.epigraph{padding-left:18px}.epigraph p{font-size:17px}}
+figure{margin:28px 0 0;--fig:100%}
+figure img{width:100%;max-width:var(--fig);margin:0 auto}
+figure img{border-radius:4px;background:#fff}
+figcaption{font-family:var(--sans);font-size:14.5px;line-height:1.5;color:var(--muted);margin:12px auto 0;max-width:var(--fig)}
+
+.parts{display:grid;grid-template-columns:repeat(3,1fr);gap:0 56px;margin-top:8px}
+.parts > div{position:relative}
+.parts > div + div::before{content:"";position:absolute;left:-28px;top:22px;bottom:0;border-left:1px solid var(--rule)}
+.parts p{font-size:17px;line-height:1.55;margin:0}
+.parts h3{margin-top:22px}
+
+/* ---------- results ---------- */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 18px}
+.tabs button{font-family:var(--sans);font-size:14.5px;font-weight:500;padding:7px 14px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
+#benchTabs{gap:0;border-bottom:1px solid var(--rule);margin:0 0 16px}
+#benchTabs button{border:0;border-radius:0;padding:8px 2px;margin-right:26px;font-size:17px;font-weight:600;color:var(--muted);background:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+#benchTabs button[aria-selected=true]{color:var(--ink);background:none;border-bottom-color:var(--focus)}
+.results{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:36px;align-items:start}
+.plot{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px 6px}
+.plot svg{display:block;width:100%;height:auto;font-family:var(--sans)}
+.sumline{font-family:var(--sans);font-size:15px;line-height:1.5;color:var(--muted);margin-top:10px}
+.big{font-family:var(--sans);font-variant-numeric:tabular-nums;margin:0 0 16px}
+.big b{display:block;font-size:56px;font-weight:700;letter-spacing:-.04em;line-height:1;color:var(--focus-deep)}
+.big span{font-size:15px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-family:var(--sans);font-size:14.5px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 9px;text-align:right;border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left}
+thead th{font-weight:600;color:var(--muted);font-size:13.5px;white-space:nowrap;line-height:1.35}
+tr.ours td{font-weight:600;background:var(--haze)}
+td .d{color:var(--muted);font-weight:400;font-size:12.5px;margin-left:4px}
+tr.ours td .d{color:var(--focus-deep)}
+details{margin-top:22px}
+summary{font-family:var(--sans);font-size:15px;font-weight:500;cursor:pointer;color:var(--focus-deep)}
+.tablewrap{overflow-x:auto;margin-top:12px}
+.tablehead{margin-top:36px}
+
+.stack{margin-top:6px}
+.stack .row{display:grid;grid-template-columns:150px 1fr 120px;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--rule);font-family:var(--sans)}
+.stack .name{font-weight:600;font-size:15.5px}
+.bars{display:flex;flex-direction:column;gap:5px}
+.bar{height:12px;border-radius:2px;background:var(--rule);position:relative}
+.bar.with{background:var(--focus)}
+.bar i{position:absolute;left:calc(100% + 8px);top:-4px;font-style:normal;font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.stack .score{font-size:13.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;line-height:1.4}
+.legend{display:flex;gap:20px;font-family:var(--sans);font-size:13.5px;color:var(--muted);margin:0 0 4px}
+.legend span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--rule)}
+.legend span.w::before{background:var(--focus)}
+
+/* ---------- bibtex ---------- */
+pre{background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:18px 20px;overflow-x:auto;font-size:14px;line-height:1.55;margin:0}
+.copy{font-family:var(--sans);font-size:14px;font-weight:500;margin-top:10px;padding:7px 14px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer}
+footer{padding:48px 0 44px;font-family:var(--sans);font-size:14px;color:var(--muted)}
+footer .wrap > div{border-top:1px solid var(--rule);padding-top:20px}
+
+@media (max-width:860px){
+  .results{grid-template-columns:1fr}
+  .parts{grid-template-columns:1fr;gap:0}
+  .parts > div + div::before{display:none}
+}
+@media (max-width:560px){
+
+  body{font-size:17px}
+  .wrap{padding:0 18px}
+  header.hero{padding-top:56px}
+  .stack .row{grid-template-columns:1fr;gap:8px}
+  .stack .score{text-align:left}
+  .readout b{font-size:23px}
+  .dial{grid-template-columns:1fr}
+  .stage{overflow-x:auto;padding:12px}
+  .stage canvas{width:760px;max-width:none}
+  .readout{gap:22px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1><span class="name">Resolution as Attention</span> <span class="rest">for Efficient Agent Memory Perception</span></h1>
+
+    <p class="authors">
+      <span>Siqi Xiang<sup>1</sup></span>
+      <span>Zhipeng Xu<sup>2</sup></span>
+      <span>Shengrui Liu<sup>1</sup></span>
+      <span>Zulong Chen<sup>2</sup></span>
+      <span>Chunyan Miao<sup>1</sup></span>
+      <span>Shijian Lu<sup>1*</sup></span>
+    </p>
+    <p class="affils"><span><sup>1</sup>Nanyang Technological University</span><span><sup>2</sup>Alibaba Group</span><span>*Corresponding author</span></p>
+
+    <ul class="links">
+      <li><a href="https://arxiv.org/abs/2611.24422">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3 1.5h6.6L13 4.9V14.5H3zM9 2.6V5.5h2.9M5 8h6M5 10.5h6M5 13h4" stroke="currentColor" stroke-width="1" fill-rule="evenodd" fill-opacity="0"/></svg>
+        arXiv</a></li>
+      <li><a href="https://github.com/sxiangag/resolution-as-attention">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub</a></li>
+      <li><a class="alt" href="#bibtex">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" d="M5 3.5 1.8 8 5 12.5M11 3.5 14.2 8 11 12.5"/></svg>
+        BibTeX</a></li>
+    </ul>
+
+    <div class="lens" id="lens">
+      <p class="claim">Effective agent memory depends not only on what is preserved, but on how finely each past interaction is perceived. <strong>Resolution as Attention (RAA)</strong> uses visual resolution as the agent's attention over its interaction history, keeping critical interactions sharp and spending fewer visual tokens on the rest.</p>
+      <div class="lens-head">
+        <p>Drag the scale to see what the agent perceives and how many visual tokens it costs.</p>
+        <span class="src">ClawGym-Bench Task 150, interaction H1</span>
+      </div>
+      <div class="stage">
+        <canvas id="lensCanvas" width="1113" height="104" role="img" aria-label="A rendered tool observation containing a manuscript excerpt, shown at the selected resolution scale."></canvas>
+      </div>
+      <div class="dial">
+        <div class="dial-head"><label for="scale">Resolution scale</label><span class="geom" aria-hidden="true"><span id="pxOut">Rendered at 1024 &times; 96 px</span><span id="gridOut">32 &times; 3 patches</span></span></div>
+        <div class="track">
+          <input id="scale" type="range" min="0.08" max="1" step="0.01" value="0.92" aria-describedby="scaleNote">
+          <div class="marks" id="marks">
+            <button type="button" data-s="0.13" aria-label="Set scale to 0.13">0.13</button>
+            <button type="button" data-s="0.92" aria-label="Set scale to 0.92">0.92</button>
+          </div>
+        </div>
+        <div class="readout" aria-live="polite">
+          <div><b id="sOut">0.92</b><small>scale</small></div>
+          <div><b id="tOut">96</b><small>visual tokens</small></div>
+          <div><b id="pOut">69%</b><small>of full cost</small></div>
+        </div>
+      </div>
+      <p id="scaleNote" class="sumline">At Step 12, Resolution as Attention perceived this manuscript excerpt at 0.92 and a less relevant error message at 0.13. Visual tokens are counted on the 32&nbsp;px patch grid of Qwen-3.8-27B.</p>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section aria-labelledby="idea">
+  <div class="wrap">
+    <h2 id="idea">Perception as a dimension of agent memory</h2>
+    <blockquote class="epigraph">
+      <p>Every one knows what attention is. It is the taking possession by the mind, in clear and vivid form, of one out of what seem several simultaneously possible objects or trains of thought. &hellip;&nbsp;It&nbsp;implies withdrawal from some things in order to deal effectively with others.</p>
+      <cite>William James, <i>The Principles of Psychology</i>, 1890</cite>
+    </blockquote>
+    <p class="lede">The granularity at which an agent perceives each past interaction should vary across interactions and evolve as the task progresses. Resolution as Attention renders each interaction as an image and scales its resolution according to its relevance to the upcoming decision.</p>
+    <figure style="--fig:860px">
+      <img src="assets/comparison.png" width="2000" height="1011" alt="Three panels comparing memory approaches. Retrieval recalls a few past steps into the context. Textual and optical compression condense every step the same way. Resolution as Attention renders each step as an image and gives it a resolution scaled by its relevance to the upcoming decision.">
+      <figcaption>Retrieval is bounded by what it recalls. Textual compression discards fine-grained details, and optical compression applies the same rate regardless of relevance. Resolution as Attention perceives each interaction at a resolution scaled by its relevance to the upcoming decision.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section aria-labelledby="method">
+  <div class="wrap">
+    <h2 id="method">Resolution as Attention</h2>
+    <figure style="--fig:860px;margin-top:4px">
+      <img src="assets/overview.png" width="2000" height="1071" alt="Overview of Resolution as Attention. Each past interaction in the history is scored by a relevance estimator against the task and the latest step. A resolution mapping turns the scores into scales, and each interaction is rendered as an image at its scale before the agent perceives it.">
+    </figure>
+    <div class="parts">
+      <div>
+        <h3>Relevance estimation</h3>
+        <p>A 0.6B estimator, fine-tuned from Qwen3-Reranker, scores each past interaction against the query formed from the task and the latest interaction.</p>
+      </div>
+      <div>
+        <h3>Resolution-controlled rendering</h3>
+        <p>A learnable sigmoid maps each score to a scale. Each interaction is rendered once as a canonical image and resized to that scale before the agent perceives it.</p>
+      </div>
+      <div>
+        <h3>Two-stage training</h3>
+        <p>The estimator first learns from teacher relevance ratings, then is calibrated with reinforcement learning to keep the agent's decisions with fewer visual tokens. The agent stays frozen throughout.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="results">
+  <div class="wrap">
+    <h2 id="results">Results</h2>
+    <div class="tabs" role="tablist" aria-label="Benchmark" id="benchTabs"></div>
+    <p class="prose" id="benchIntro"></p>
+    <div class="tabs" role="tablist" aria-label="Agent backbone" id="tabs"></div>
+    <div class="results">
+      <div class="plot">
+        <svg id="plot" viewBox="0 0 560 380" role="img" aria-labelledby="plotTitle"><title id="plotTitle">Average score against history tokens per task for each method</title></svg>
+      </div>
+      <div>
+        <div class="big"><b id="bigCut"></b><span id="bigCutNote">fewer history tokens per task than Vanilla</span></div>
+        <p id="resultText" style="font-size:17px"></p>
+        <p class="sumline" id="plotNote"></p>
+      </div>
+    </div>
+    <div class="tablewrap tablehead"><table id="fullTable"></table></div>
+  </div>
+</section>
+
+<section aria-labelledby="stack">
+  <div class="wrap">
+    <h2 id="stack">A layer on top of existing memory management</h2>
+    <p class="prose">Resolution as Attention determines how memory is perceived, and therefore complements methods that determine what memory is retained. Adding it to summarization, retrieval and masking further cuts their token consumption by 22.5% to 54.1%, with no loss in score. Results with Qwen-3.8-27B.</p>
+    <div class="legend"><span>Without RAA</span><span class="w">With RAA</span></div>
+    <div class="stack" id="stackRows"></div>
+  </div>
+</section>
+
+<section aria-labelledby="case">
+  <div class="wrap">
+    <h2 id="case">What the agent sees</h2>
+    <p class="prose"><strong>Case Study 1.</strong> The agent writes six social posts that quote a manuscript exactly. At Step 12 it checks the posts against their sources. The manuscript text it must quote stays sharp. A more recent error message about chapter IDs, less relevant to this check, shrinks to a few patches.</p>
+    <figure style="--fig:720px">
+      <img src="assets/case_study_task150.png" width="2000" height="1650" alt="Heatmap of resolution scales for 17 past interactions over 15 steps of Task 150, with the Step 12 rendering of H1 at scale 0.92 and H8 at scale 0.13.">
+      <figcaption>Scales across all 15 steps of ClawGym-Bench Task 150. Each row denotes one step and each column represents one past interaction. T marks the latest round.</figcaption>
+    </figure>
+    <p class="prose" style="margin-top:32px"><strong>Case Study 2.</strong> The agent builds a screening pipeline for RC filter prototypes and then updates the lab notes. While it runs the pipeline, the lab notes fade to a coarse scale. Once it turns to verifying them, they come back into focus.</p>
+    <figure style="--fig:720px">
+      <img src="assets/case_study_task42.png" width="2000" height="1548" alt="Heatmap of resolution scales for Task 42. The lab notes in H5 drop to scale 0.38 while the agent runs a screening pipeline and return to 0.93 when the agent verifies the lab notes.">
+      <figcaption>Scales across all 8 steps of ClawGym-Bench Task 42. Each row denotes one step and each column represents one past interaction. T marks the latest round.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section aria-labelledby="bibtex">
+  <div class="wrap">
+    <h2 id="bibtex">BibTeX</h2>
+<pre id="bib">@article{xiang2026resolution,
+  title   = {Resolution as Attention for Efficient Agent Memory Perception},
+  author  = {Xiang, Siqi and Xu, Zhipeng and Liu, Shengrui and Chen, Zulong and Miao, Chunyan and Lu, Shijian},
+  journal = {arXiv preprint arXiv:2611.24422},
+  year    = {2026},
+  url     = {https://arxiv.org/abs/2611.24422}
+}</pre>
+    <button class="copy" type="button" id="copyBib">Copy BibTeX</button>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap"><div>Resolution as Attention for Efficient Agent Memory Perception</div></div>
+</footer>
+
+
+<script>
+/* ---------- lens ---------- */
+(function(){
+  const CW=1113, CH=104, PATCH=32;            // canonical render, Qwen patch grid
+  const canvas=document.getElementById('lensCanvas');
+  const ctx=canvas.getContext('2d');
+  const range=document.getElementById('scale');
+  const sOut=document.getElementById('sOut'), tOut=document.getElementById('tOut'), pOut=document.getElementById('pOut');
+  const pxOut=document.getElementById('pxOut'), gridOut=document.getElementById('gridOut');
+  const src=new Image(); src.src='assets/demo_task150_h1.png';
+  const canon=document.createElement('canvas'); canon.width=CW; canon.height=CH;
+  const small=document.createElement('canvas');
+  const tokens=s=>Math.ceil(CW*s/PATCH)*Math.ceil(CH*s/PATCH);
+  const full=tokens(1);
+  function draw(s){
+    const w=Math.max(1,Math.round(CW*s)), h=Math.max(1,Math.round(CH*s));
+    small.width=w; small.height=h;
+    const sc=small.getContext('2d'); sc.imageSmoothingEnabled=true; sc.imageSmoothingQuality='high';
+    sc.fillStyle='#fff'; sc.fillRect(0,0,w,h); sc.drawImage(canon,0,0,w,h);
+    ctx.imageSmoothingEnabled=false; ctx.fillStyle='#fff'; ctx.fillRect(0,0,CW,CH);
+    ctx.drawImage(small,0,0,w,h,0,0,CW,CH);
+    // patch grid at the selected scale
+    const cols=Math.ceil(w/PATCH), rows=Math.ceil(h/PATCH);
+    ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--focus').trim()||'#2F6B5B'; ctx.lineWidth=1;
+    const step=PATCH/s, xs=[], ys=[];
+    for(let i=1;i<cols;i++){const x=Math.round(i*step)+.5; if(x<CW) xs.push(x);}
+    for(let j=1;j<rows;j++){const y=Math.round(j*step)+.5; if(y<CH) ys.push(y);}
+    ctx.globalAlpha=.13; ctx.beginPath();
+    xs.forEach(x=>{ctx.moveTo(x,0);ctx.lineTo(x,CH);}); ys.forEach(y=>{ctx.moveTo(0,y);ctx.lineTo(CW,y);});
+    ctx.stroke();
+    ctx.globalAlpha=.38; ctx.beginPath(); const k=2.5;
+    const XS=[.5,...xs,CW-.5], YS=[.5,...ys,CH-.5];
+    XS.forEach(x=>YS.forEach(y=>{ctx.moveTo(x-k,y);ctx.lineTo(x+k,y);ctx.moveTo(x,y-k);ctx.lineTo(x,y+k);}));
+    ctx.stroke(); ctx.globalAlpha=1;
+    const t=tokens(s);
+    sOut.textContent=s.toFixed(2); tOut.textContent=t; pOut.textContent=Math.round(100*t/full)+'%';
+    pxOut.textContent='Rendered at '+w+' \u00d7 '+h+' px'; gridOut.textContent=cols+' \u00d7 '+rows+' patch'+(cols*rows>1?'es':'');
+  }
+  src.onload=()=>{
+    const c=canon.getContext('2d'); c.fillStyle='#fff'; c.fillRect(0,0,CW,CH);
+    c.imageSmoothingEnabled=true; c.imageSmoothingQuality='high'; c.drawImage(src,0,0,CW,CH);
+    const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduce){draw(+range.value);return;}
+    // one opening moment, the history comes into focus
+    const from=0.08,to=+range.value,dur=1600,t0=performance.now();
+    function tick(now){const k=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-k,3), s=from+(to-from)*e;
+      range.value=s.toFixed(2); draw(s); if(k<1) requestAnimationFrame(tick);}
+    requestAnimationFrame(tick);
+  };
+  range.addEventListener('input',()=>draw(+range.value));
+  window.__lensRedraw=()=>{ if(src.complete) draw(+range.value); };
+  document.querySelectorAll('#marks button').forEach(b=>{
+    const s=+b.dataset.s; b.style.left=((s-0.08)/(1-0.08)*100)+'%';
+    b.addEventListener('click',()=>{range.value=s; draw(s);});
+  });
+})();
+
+/* ---------- results ---------- */
+const BENCH={
+ "ClawGym-Bench":{
+  intro:"ClawGym-Bench has 200 long-horizon workspace tasks across six categories. Resolution as Attention is trained only with Qwen-3.8-27B and transferred to the other two agents without further fine-tuning.",
+  yLabel:"Average score", scoreName:"Avg.", scoreWord:"score",
+  cols:["Productivity & Collab.","Systems & Auto.","Analysis & Reasoning","Content & Domain","Planning & Knowledge","Software Dev."],
+  summary:"Full results by task category",
+  rows:{
+   "Qwen-3.8-27B":[["Vanilla",78.23,89733,12561,[78.82,67.16,82.43,83.10,79.44,83.23]],["FIFO",77.95,48825,8451,[80.69,70.16,78.99,80.06,77.89,82.50]],["LongLLMLingua",77.87,62035,7024,[79.00,66.18,76.62,83.54,80.06,88.61]],["OCR-Memory",64.86,67921,6500,[64.90,62.37,64.70,62.24,66.18,70.77]],["AgentOCR",77.21,69693,8266,[74.62,68.40,79.88,83.32,77.96,85.21]],["RAA (ours)",78.69,38169,6447,[77.51,70.18,79.30,84.17,81.03,85.62]]],
+   "Qwen-3.6-27B":[["Vanilla",67.98,64456,9284,[68.85,64.15,67.31,71.80,70.11,67.32]],["FIFO",65.24,40607,6674,[66.91,60.23,65.10,68.97,68.15,63.72]],["LongLLMLingua",67.08,39415,5764,[68.46,61.78,67.82,69.08,68.32,68.98]],["OCR-Memory",60.19,35719,3987,[56.73,55.75,63.02,60.40,62.57,67.03]],["AgentOCR",66.71,55781,6148,[64.61,62.57,65.56,68.18,69.90,74.04]],["RAA (ours)",68.31,31230,4512,[69.35,58.43,70.92,71.52,69.91,74.17]]],
+   "Kimi-K3":[["Vanilla",79.93,73183,9419,[79.55,71.35,80.61,84.53,82.85,85.88]],["FIFO",79.16,43348,7222,[79.30,68.53,80.52,86.95,81.89,83.29]],["LongLLMLingua",78.95,40842,6116,[79.40,68.13,79.90,86.20,81.26,84.52]],["OCR-Memory",78.17,35722,5051,[78.80,72.35,77.94,82.79,80.07,80.00]],["AgentOCR",79.77,56563,8613,[78.98,68.80,80.42,86.44,84.57,86.02]],["RAA (ours)",79.95,32258,5400,[78.30,71.97,81.58,86.62,82.01,84.39]]]
+  },
+  note:{
+   "Qwen-3.8-27B":"On Qwen-3.8-27B, Resolution as Attention uses 38.2K history tokens per task against 89.7K for Vanilla, with a slightly higher average score of 78.69.",
+   "Qwen-3.6-27B":"Without any fine-tuning on this agent, Resolution as Attention uses 31.2K tokens per task against 64.5K for Vanilla, and scores 68.31 against 67.98.",
+   "Kimi-K3":"Transferred to a different model family, Resolution as Attention uses 32.3K tokens per task against 73.2K for Vanilla, at an average score of 79.95."
+  }
+ },
+ "AppWorld":{
+  intro:"AppWorld has 168 tasks that require writing code to operate simulated apps. The estimator and mapping trained on ClawGym are reused without fine-tuning, and the history is rendered in a larger monospaced font. Scores are task goal completion (TGC).",
+  yLabel:"Overall TGC", scoreName:"Overall", scoreWord:"TGC",
+  cols:["Easy","Medium","Hard"],
+  summary:"Full results by difficulty",
+  rows:{
+   "Qwen-3.8-27B":[["Vanilla",87.50,99205,9665,[100.00,89.58,74.60]],["FIFO",62.50,77471,5908,[98.25,62.50,30.16]],["LongLLMLingua",74.40,97480,7079,[96.49,89.58,42.86]],["OCR-Memory",66.07,91677,6979,[96.49,60.42,42.86]],["AgentOCR",48.81,117516,6958,[84.21,47.92,17.46]],["RAA (ours)",81.55,69623,6624,[96.49,77.08,71.43]]],
+   "Qwen-3.6-27B":[["Vanilla",71.43,85175,9375,[85.96,62.50,65.08]],["FIFO",51.79,71925,6214,[84.21,50.00,23.81]],["LongLLMLingua",61.90,88057,6889,[87.72,56.25,42.86]],["OCR-Memory",48.81,250663,18185,[71.93,47.92,28.57]],["AgentOCR",27.38,75561,4394,[50.88,25.00,7.94]],["RAA (ours)",63.10,63342,6493,[84.21,56.25,49.21]]],
+   "Kimi-K3":[["Vanilla",95.83,138637,12542,[100.00,100.00,88.89]],["FIFO",71.43,89281,7729,[100.00,79.17,39.68]],["LongLLMLingua",83.93,94494,7090,[98.25,97.92,60.32]],["OCR-Memory",82.74,100818,6380,[98.25,95.83,58.73]],["AgentOCR",87.50,87519,7766,[98.25,95.83,71.43]],["RAA (ours)",94.64,65600,6687,[100.00,97.92,87.30]]]
+  },
+  note:{
+   "Qwen-3.8-27B":"Resolution as Attention reaches 81.55 TGC with 69.6K tokens per task against 99.2K for Vanilla, the highest among memory methods. It leads LongLLMLingua, the strongest baseline, by 7.15 points while using 28.6% fewer tokens. The gap to Vanilla follows how well the backbone reads rendered images, and narrows to 1.19 points on Kimi-K3.",
+   "Qwen-3.6-27B":"Resolution as Attention reaches 63.10 TGC with 63.3K tokens per task against 85.2K for Vanilla, the highest among memory methods. It leads the other visual methods by 14.29 points and edges past LongLLMLingua, the strongest textual baseline, while using 28% fewer tokens.",
+   "Kimi-K3":"Resolution as Attention uses 65.6K tokens per task against 138.6K for Vanilla and reaches 94.64 TGC, only 1.19 points below Vanilla. Kimi-K3 reads rendered code most reliably of the three backbones."
+  }
+ }
+};
+let curBench="ClawGym-Bench", curModel="Qwen-3.8-27B";
+const fmtK=n=>(n/1000).toFixed(1)+'K';
+const svgNS='http://www.w3.org/2000/svg';
+function el(tag,attrs,text){const e=document.createElementNS(svgNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e;}
+
+const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function plot(){
+  const B=BENCH[curBench], rows=B.rows[curModel];
+  const C={grid:cv('--grid'),muted:cv('--muted'),ink:cv('--ink'),focus:cv('--focus'),deep:cv('--focus-deep'),dot:cv('--dot'),dotS:cv('--dot-stroke'),paper:cv('--surface')};
+  const svg=document.getElementById('plot'); [...svg.querySelectorAll(':not(title)')].forEach(n=>n.remove());
+  const W=560,H=380,L=52,R=18,T=16,BOT=48;
+  // keep the axis readable when one baseline is far out, and mark it at the edge
+  const sorted=rows.map(r=>r[2]).sort((a,b)=>a-b), med=sorted[Math.floor(sorted.length/2)];
+  const cap=med*1.8;
+  const xs=rows.map(r=>Math.min(r[2],cap)), ys=rows.map(r=>r[1]);
+  const x0=Math.max(0,Math.floor(Math.min(...xs)/10000)*10000-5000), x1=Math.ceil(Math.max(...xs)/10000)*10000+5000;
+  const yspan=Math.max(...ys)-Math.min(...ys), ystep=yspan>24?10:(yspan>12?4:2);
+  const y0=Math.floor(Math.min(...ys)/ystep)*ystep-ystep/2, y1=Math.ceil(Math.max(...ys)/ystep)*ystep+ystep/4;
+  const X=v=>L+(v-x0)/(x1-x0)*(W-L-R), Y=v=>T+(1-(v-y0)/(y1-y0))*(H-T-BOT);
+  for(let v=Math.ceil(y0/ystep)*ystep; v<=y1; v+=ystep){svg.append(el('line',{x1:L,x2:W-R,y1:Y(v),y2:Y(v),stroke:C.grid}));svg.append(el('text',{x:L-8,y:Y(v)+4,'text-anchor':'end','font-size':11.5,fill:C.muted},v));}
+  const xstep=(x1-x0)>110000?40000:20000;
+  for(let v=Math.ceil(x0/xstep)*xstep; v<=x1; v+=xstep){svg.append(el('text',{x:X(v),y:H-BOT+18,'text-anchor':'middle','font-size':11.5,fill:C.muted},(v/1000)+'K'));}
+  svg.append(el('text',{x:(L+W-R)/2,y:H-8,'text-anchor':'middle','font-size':12.5,fill:C.muted},'History tokens per task'));
+  svg.append(el('text',{x:14,y:(T+H-BOT)/2,'text-anchor':'middle','font-size':12.5,fill:C.muted,transform:`rotate(-90 14 ${(T+H-BOT)/2})`},B.yLabel));
+  const labels=[];
+  rows.forEach(r=>{
+    const ours=r[0].startsWith('RAA'), van=r[0]==='Vanilla', out=r[2]>cap;
+    const cx=X(Math.min(r[2],cap)), cy=Y(r[1]);
+    svg.append(el('circle',{cx,cy,r:ours?8:5.5,fill:ours?C.focus:(van?C.paper:C.dot),stroke:ours?C.deep:(van?C.ink:C.dotS),'stroke-width':ours?2:1.3,'stroke-dasharray':out?'2 2':'none'}));
+    const right=cx<W-170;
+    const name=out?`${r[0]}, ${fmtK(r[2])} (off scale)`:r[0];
+    const t=el('text',{x:cx+(right?12:-12),y:cy+4,'text-anchor':right?'start':'end','font-size':ours?13.5:12,'font-weight':ours?700:500,fill:ours?C.deep:C.ink},name);
+    svg.append(t); labels.push(t);
+  });
+  labels.sort((a,b)=>+a.getAttribute('y')-+b.getAttribute('y'));
+  for(let k=0;k<3;k++)for(let i=1;i<labels.length;i++){const a=labels[i-1],b=labels[i];const ba=a.getBBox(),bb=b.getBBox();
+    const overlapX=!(ba.x+ba.width<bb.x||bb.x+bb.width<ba.x); if(overlapX&&bb.y<ba.y+ba.height+1){b.setAttribute('y',+b.getAttribute('y')+(ba.y+ba.height+1-bb.y));}}
+  const van=rows[0], ours=rows[5];
+  document.getElementById('bigCut').textContent=(100*(1-ours[2]/van[2])).toFixed(1)+'%';
+  document.getElementById('resultText').textContent=B.note[curModel];
+  document.getElementById('benchIntro').textContent=B.intro;
+  document.getElementById('plotNote').textContent=`Upper left is better, a higher ${B.scoreWord} with fewer tokens. Vanilla reads the full textual history.`;
+  
+  table();
+}
+function table(){
+  const B=BENCH[curBench], rows=B.rows[curModel], van=rows[0];
+  const t=document.getElementById('fullTable');
+  let h='<thead><tr><th scope="col">Method</th>'+B.cols.map(c=>`<th scope="col">${c.includes(' & ')?c.replace(' & ','<br>&amp; '):c.replace(' ','<br>')}</th>`).join('')+`<th scope="col">${B.scoreName}</th><th scope="col">Tokens / task</th><th scope="col">Peak tokens</th></tr></thead><tbody>`;
+  rows.forEach((r,i)=>{
+    const ours=r[0].startsWith('RAA');
+    const d=(a,b)=>i===0?'':`<span class="d">${a<b?'−':'+'}${Math.abs(100*(a/b-1)).toFixed(1)}%</span>`;
+    h+=`<tr class="${ours?'ours':''}"><td>${r[0]}</td>`+r[4].map(v=>`<td>${v.toFixed(2)}</td>`).join('')+`<td>${r[1].toFixed(2)}</td><td>${r[2].toLocaleString('en-US')}${d(r[2],van[2])}</td><td>${r[3].toLocaleString('en-US')}${d(r[3],van[3])}</td></tr>`;
+  });
+  t.innerHTML=h+'</tbody>';
+}
+function tabRow(id,names,get,set){
+  const box=document.getElementById(id);
+  names.forEach(name=>{
+    const b=document.createElement('button'); b.type='button'; b.setAttribute('role','tab'); b.textContent=name; b.setAttribute('aria-selected',name===get());
+    b.addEventListener('click',()=>{set(name); box.querySelectorAll('button').forEach(x=>x.setAttribute('aria-selected',x===b)); plot();});
+    box.append(b);
+  });
+}
+tabRow('benchTabs',Object.keys(BENCH),()=>curBench,v=>curBench=v);
+tabRow('tabs',["Qwen-3.8-27B","Qwen-3.6-27B","Kimi-K3"],()=>curModel,v=>curModel=v);
+plot();
+
+/* ---------- stacking ---------- */
+(function(){
+  const S=[["None (full history)",78.23,89733,78.69,38169],["ACON",77.51,46604,78.83,36140],["A-MEM",78.22,55234,78.48,30565],["Observation masking",78.69,72805,78.75,33417]];
+  const max=89733, box=document.getElementById('stackRows');
+  S.forEach(([n,s0,t0,s1,t1])=>{
+    const row=document.createElement('div'); row.className='row';
+    row.innerHTML=`<div class="name">${n}</div>
+      <div class="bars" aria-label="${fmtK(t0)} tokens per task without Resolution as Attention, ${fmtK(t1)} with it">
+        <div class="bar" style="width:${(t0/max*82).toFixed(1)}%"><i>${fmtK(t0)}</i></div>
+        <div class="bar with" style="width:${(t1/max*82).toFixed(1)}%"><i>${fmtK(t1)}, −${(100*(1-t1/t0)).toFixed(1)}%</i></div>
+      </div>
+      <div class="score">score ${s0.toFixed(2)}<br>to ${s1.toFixed(2)}</div>`;
+    box.append(row);
+  });
+})();
+
+/* ---------- copy bibtex ---------- */
+document.getElementById('copyBib').addEventListener('click',e=>{
+  const txt=document.getElementById('bib').textContent;
+  const done=()=>{e.target.textContent='Copied';setTimeout(()=>e.target.textContent='Copy BibTeX',1800);};
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(done,()=>{});}
+});
+</script>
+</body>
+</html>
